@@ -25,6 +25,7 @@ A seepssefeu script for Windows and macOS can be generated through one call to `
 `DestinationBootstrapScriptName`: the name of the PowerShell bootstrap script that the seepssefeu script creates to extract all its files with. This is relative to `DestinationBase`. This needs not include a file-extension, as `.ps1` is added automatically.  If this is `$Null`, it defaults to `"$DestinationBase-Bootstrap"`.  
 `DestinationBootstrapFileDepth`: this is used to specify the directory-depth of the PowerShell bootstrap script, which is controlled by `DestinationBootstrapScriptName`, if `DestinationBootstrapScriptName` was `bootstrap` this would be `0`, otherwise if `DestinationBootstrapScriptName` was `one/two/bootstrap` this would be `2` (as it's two directories deep), if `DestinationBootstrapScriptName` was `one/two/../bootstrap` this would be `1` as it resolves to being one directory deep.  
 `TerminalWindowTitle`:  this is the title of the window used for the PowerShell terminal that the script is run with, for Windows targets.  
+`MakeZipInWindowsExplorerFriendlyVersion`: when this switch is supplied, an additional version of the Batch file for Windows will be generated, this version is capable of detecting if it's been run from within a zip-archive opened in Windows Explorer, and when that's detected it will copy itself to the user's local app-data folder so that file extraction succeeds. The heuristic used for this is: if the Batch file is located in the user's `%TEMP%` directory, and the working-directory is `%SYSTEMROOT%\system32`.  
 `PowerShellDirectoryName`: this is the name of the directory that a downloaded PowerShell tarball gets extracted into, for macOS targets, it defaults to `PowerShell`. This is relative to `DestinationBase`.  
 `PowerShellTarballName`: this is the name that is used for a downloaded PowerShell tarball, for macOS targets, it defaults to `_powershell.tar.gz`. This is relative to `PowerShellDirectoryName`.  
 `MinimumPowerShellVersionMajor`: this is the minimum major-version of PowerShell required for macOS targets, it defaults to `7`.  
@@ -50,7 +51,8 @@ These two parameters expect a hash-table-like object with four members:
 `URL`: A string specifying the URL that the PowerShell tarball is to be downloaded from.  
 `BackupURL`: A string specifying the URL that the PowerShell tarball is to be downloaded from if it can't be downloaded from `URL`. (Use a link from the Wayback Machine, or something like that).
 
-`New-SEEPSSEFEU` returns a `PSCustomObject` with two members, `Windows` and `MacOS`, each being a `Text.StringBuilder` instance with the contents of the generated script ready to save. 
+`New-SEEPSSEFEU` returns a `PSCustomObject` with at-least two members, `Windows` and `MacOS`, each being a `Text.StringBuilder` instance with the contents of the generated script ready to save.  
+If the `MakeZipInWindowsExplorerFriendlyVersion` switch was provided, then an additional member with a generated script, `WindowsZipInWindowsExplorerFriendly`, will be present.
 
 ### Example
 
