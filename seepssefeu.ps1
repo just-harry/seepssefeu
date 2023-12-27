@@ -39,6 +39,7 @@ function New-SEEPSSEFEU (
 	[String] $DestinationBase,
 	[String] $DestinationBootstrapScriptName,
 	[String] $TerminalWindowTitle,
+	[Switch] $MakeZipInWindowsExplorerFriendlyVersion,
 	[UInt32] $DestinationBootstrapFileDepth = 0,
 	[String] $PowerShellDirectoryName = 'PowerShell',
 	[String] $PowerShellTarballName = '_powershell.tar.gz',
@@ -63,6 +64,7 @@ function New-SEEPSSEFEU (
 		-DestinationBase $DestinationBase `
 		-DestinationBootstrapScriptName $DestinationBootstrapScriptName `
 		-TerminalWindowTitle $TerminalWindowTitle `
+		-MakeZipInWindowsExplorerFriendlyVersion:$MakeZipInWindowsExplorerFriendlyVersion `
 		-DestinationBootstrapFileDepth $DestinationBootstrapFileDepth `
 		-PowerShellDirectoryName $PowerShellDirectoryName `
 		-PowerShellTarballName $PowerShellTarballName `
@@ -79,6 +81,7 @@ function New-SEEPSSEFEUForMultiplePlatforms (
 	[String] $DestinationBase,
 	[String] $DestinationBootstrapScriptName,
 	[String] $TerminalWindowTitle,
+	[Switch] $MakeZipInWindowsExplorerFriendlyVersion,
 	[UInt32] $DestinationBootstrapFileDepth = 0,
 	[String] $PowerShellDirectoryName = 'PowerShell',
 	[String] $PowerShellTarballName = '_powershell.tar.gz',
@@ -88,16 +91,26 @@ function New-SEEPSSEFEUForMultiplePlatforms (
 	$PowerShellTarballSourceForARM
 )
 {
-	[PSCustomObject] @{
-		Windows = New-SEEPSSEFEUForWindows `
-			-FileData $FileData `
-			-ScriptToRun $ScriptToRun `
-			-DestinationBase $DestinationBase `
-			-DestinationBootstrapScriptName $DestinationBootstrapScriptName `
-			-DestinationBootstrapFileDepth $DestinationBootstrapFileDepth `
-			-TerminalWindowTitle $TerminalWindowTitle
+	$Result = [Ordered] @{}
 
-		MacOS = New-SEEPSSEFEUForMacOS `
+	$WindowsArguments = @{
+		FileData = $FileData
+		ScriptToRun = $ScriptToRun
+		DestinationBase = $DestinationBase
+		DestinationBootstrapScriptName = $DestinationBootstrapScriptName
+		DestinationBootstrapFileDepth = $DestinationBootstrapFileDepth
+		TerminalWindowTitle = $TerminalWindowTitle
+	}
+
+	$Result.Windows = New-SEEPSSEFEUForWindows @WindowsArguments
+
+	if ($MakeZipInWindowsExplorerFriendlyVersion)
+	{
+		$Result.WindowsZipInWindowsExplorerFriendly = New-SEEPSSEFEUForWindows @WindowsArguments -ZipInWindowsExplorerFriendly
+	}
+
+	$Result.MacOS = (
+		New-SEEPSSEFEUForMacOS `
 			-FileData $FileData `
 			-ScriptToRun $ScriptToRun `
 			-DestinationBase $DestinationBase `
@@ -109,7 +122,9 @@ function New-SEEPSSEFEUForMultiplePlatforms (
 			-MinimumPowerShellVersionMinor $MinimumPowerShellVersionMinor `
 			-PowerShellTarballSourceForX86 $PowerShellTarballSourceForX86 `
 			-PowerShellTarballSourceForARM $PowerShellTarballSourceForARM
-	}
+	)
+
+	[PSCustomObject] $Result
 }
 
 
@@ -119,7 +134,8 @@ function New-SEEPSSEFEUForWindows (
 	[String] $DestinationBase,
 	[String] $DestinationBootstrapScriptName,
 	[UInt32] $DestinationBootstrapFileDepth = 0,
-	[String] $TerminalWindowTitle
+	[String] $TerminalWindowTitle,
+	[Switch] $ZipInWindowsExplorerFriendly
 )
 {
 	$Script = [Text.StringBuilder]::new()
@@ -128,7 +144,8 @@ function New-SEEPSSEFEUForWindows (
 		-FileDelineator $FileData.FileDelineator `
 		-DestinationBase $DestinationBase `
 		-DestinationBootstrapScriptName $DestinationBootstrapScriptName `
-		-TerminalWindowTitle $TerminalWindowTitle
+		-TerminalWindowTitle $TerminalWindowTitle `
+		-ZipInWindowsExplorerFriendly:$ZipInWindowsExplorerFriendly
 
 	$Script.Append($CMDBoostrap) > $Null
 	$Script.Append("`r`n") > $Null
@@ -497,7 +514,8 @@ function New-CMDBootstrapForWindows (
 	[String] $FileDelineator,
 	[String] $DestinationBase,
 	[String] $DestinationBootstrapScriptName,
-	[String] $TerminalWindowTitle
+	[String] $TerminalWindowTitle,
+	[Switch] $ZipInWindowsExplorerFriendly
 )
 {
 	if ($DestinationBootstrapScriptName.Length -eq 0)
@@ -517,6 +535,26 @@ function New-CMDBootstrapForWindows (
 	# $J = Jindex (...what?)
 @"
 @echo off
+$(
+	if ($ZipInWindowsExplorerFriendly)
+	{
+@"
+set "currentDirectory=%CD%"
+set "scriptPath=%~dp0"
+call set "sansTempPrefix=%%scriptPath:%TEMP%=%%"
+
+rem If we're in the TEMP directory...
+if not "%sansTempPrefix%"=="%scriptPath%" (
+	rem And the working-directory is System32, then the script has probably been opened
+	rem from within a zip-file opened in Windows explorer, so we'll move to the local app-data folder.
+	if /I "%currentDirectory%"=="%SYSTEMROOT%\system32" (
+		>NUL: copy /Y /B "%~dpnx0" "%LOCALAPPDATA%\%~nx0"
+		cd "%LOCALAPPDATA%"
+	)
+)
+"@
+	}
+)
 mkdir "$DestinationBase"
 start "$(& $Escape $TerminalWindowTitle)" powershell.exe -ExecutionPolicy Bypass -NoExit -Command "& {`$P = Resolve-Path -LiteralPath \"%~nx0\"; `$B = `$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath(\"$DestinationBase/$DestinationBootstrapScriptName\"); `$U = [Text.UTF8Encoding]::new(`$False, `$False); `$D = [String]::new([Char[]] @($(([UInt32[]] $FileDelineator.ToCharArray()) -join ', '))); `$R = `$Null; try {`$R = [IO.StreamReader]::new([IO.FileStream]::new(`$P, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete), `$U, `$True); `$S = `$R.ReadToEnd(); `$I = `$S.IndexOf(`$D); `$J = `$S.IndexOf(`$D, `$I + $($FileDelineator.Length)); [IO.File]::WriteAllText(\"`$B.ps1\", `$S.Substring(`$I + $($FileDelineator.Length), `$J - (`$I + $($FileDelineator.Length))), `$U)} finally {if (`$Null -ne `$R) {`$R.Dispose()}}; & \"`$B.ps1\" `$P}"
 exit /b
