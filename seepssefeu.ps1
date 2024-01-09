@@ -597,8 +597,8 @@ pwsh_path="`$powershell_directory/pwsh"
 if which pwsh > /dev/null
 then
 	powershell_version="`$(pwsh --version)"
-	powershell_version_major="`$(echo "`$powershell_version" | LC_ALL=C sed -n -E 's/^.*([0-9]+)\.([0-9]+)\.([0-9]+)(?:-.*)?$/\1/p')"
-	powershell_version_minor="`$(echo "`$powershell_version" | LC_ALL=C sed -n -E 's/^.*([0-9]+)\.([0-9]+)\.([0-9]+)(?:-.*)?$/\2/p')"
+	powershell_version_major="`$(echo "`$powershell_version" | LC_ALL=C sed -n -E 's/^.*([0-9]+)\.([0-9]+)\.([0-9]+)(-.*)?$/\1/p')"
+	powershell_version_minor="`$(echo "`$powershell_version" | LC_ALL=C sed -n -E 's/^.*([0-9]+)\.([0-9]+)\.([0-9]+)(-.*)?$/\2/p')"
 
 	echo "Detected PowerShell v$powershell_version_major.$powershell_version_minor"
 
